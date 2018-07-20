@@ -196,19 +196,22 @@ class Result(BVLPDU):
 
     messageType = BVLCI.result
 
-    def __init__(self, code=None, *args, **kwargs):
+    def __init__(self, addr=None, code=None, *args, **kwargs):
         super(Result, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.result
-        self.bvlciLength = 6
+        self.bvlciLength = 4 + ADDRESS_LENGTH + 2
+        self.bvlciAddress = addr
         self.bvlciResultCode = code
 
     def encode(self, bvlpdu):
         BVLCI.update(bvlpdu, self)
+        bvlpdu.put_data(self.bvlciAddress.addrAddr)
         bvlpdu.put_short( self.bvlciResultCode )
 
     def decode(self, bvlpdu):
         BVLCI.update(self, bvlpdu)
+        self.bvlciAddress = Address(bvlpdu.get_data(ADDRESS_LENGTH))
         self.bvlciResultCode = bvlpdu.get_short()
 
     def bvlpdu_contents(self, use_dict=None, as_class=dict):
