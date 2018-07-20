@@ -20,11 +20,11 @@ _log = ModuleLogger(globals())
 
 # settings
 ADDRESS_LENGTH = 6
-BROADCAST_ADDRESS = Address(b'\xFF' * ADDRESS_LENGTH)
+BROADCAST_ADDRESS = Address(b'\x80' + b'00' * (ADDRESS_LENGTH - 1))
 
 # settings
-default_lan_name = "bacnet"
-default_broker_host = "localhost"
+default_lan_name = "bacpypes-mqtt"
+default_broker_host = "test.mosquitto.org"
 default_broker_port = 1883
 default_broker_keepalive = 60
 
