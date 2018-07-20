@@ -11,17 +11,35 @@ explore the use of MQTT.
 
 1. Clone the repository:
 
+```bash
+$ git clone https://github.com/JoelBender/bacpypes-mqtt.git
+```
+
 2. Install the project dependancies in a virtual environment:
+
+```bash
+$ cd bacpypes-mqtt
+$ pipenv install
+```
 
 3. Duplicate the `BACpypes~.ini` template and modify the BACnet device
    settings:
 
-    $ cp BACpypes~.ini BACpypes.ini
+```bash
+$ cp BACpypes~.ini BACpypes.ini
+$ vi BACpypes.ini
+```
 
 4. Run the console application, by default will use the `bacpypes-mqtt` network on the `test.mosquitto.org` broker.
 
-    $ pipenv run python console_client.py
+```bash
+$ pipenv run python console_client.py
+```
 
 5. See who else is online:
 
-    > whois
+```bash
+> whois
+```
+
+For more information see the [wiki](https://github.com/JoelBender/bacpypes-mqtt/wiki).
