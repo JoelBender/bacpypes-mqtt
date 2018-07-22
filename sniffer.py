@@ -12,15 +12,18 @@ from bacpypes.debugging import bacpypes_debugging, ModuleLogger, btox, xtob
 from bacpypes.consolelogging import ArgumentParser
 from bacpypes.core import run, enable_sleeping
 
-from bacpypes.pdu import Address, PDU
+from bacpypes.pdu import Address, LocalBroadcast, PDU
 from bacpypes.npdu import NPDU, npdu_types
 from bacpypes.apdu import APDU, apdu_types, confirmed_request_types, unconfirmed_request_types, complex_ack_types, error_types, \
     ConfirmedRequestPDU, UnconfirmedRequestPDU, SimpleAckPDU, ComplexAckPDU, SegmentAckPDU, ErrorPDU, RejectPDU, AbortPDU
 
 import paho.mqtt.client as _paho_mqtt
 
-from bacpypes_mqtt import BVLPDU, bvl_pdu_types, OriginalUnicastNPDU, OriginalBroadcastNPDU
-from bacpypes_mqtt import default_lan_name, default_broker_host, default_broker_port, default_broker_keepalive
+from bacpypes_mqtt import (
+    BROADCAST_ADDRESS, default_lan_name, default_broker_host,
+    default_broker_port, default_broker_keepalive,
+    BVLPDU, bvl_pdu_types, OriginalUnicastNPDU, OriginalBroadcastNPDU,
+    )
 
 # some debugging
 _debug = 0
@@ -37,6 +40,10 @@ args = None
 def decode_packet(data, destination):
     """decode the data, return some kind of PDU."""
     if _debug: decode_packet._debug("decode_packet %r %r", data, destination)
+
+    # make destination a little more abstact
+    if destination == BROADCAST_ADDRESS:
+        destination = LocalBroadcast()
 
     # build a PDU
     pdu = PDU(data, destination=destination)
