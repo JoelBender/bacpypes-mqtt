@@ -156,10 +156,14 @@ class VLANRouter:
         bind(self.nse, self.nsap)
 
         # create an MQTT client
-        self.mqtt_client = bacpypes_mqtt.MQTTClient(lan, addr1, args.host, port=args.port, keepalive=args.keepalive)
+        self.msap = bacpypes_mqtt.MQTTClient(lan, addr1, args.host, port=args.port, keepalive=args.keepalive)
+
+        # create a service element for the client
+        self.mse = bacpypes_mqtt.MQTTServiceElement()
+        bind(self.mse, self.msap)
 
         # bind to the MQTT network
-        self.nsap.bind(self.mqtt_client, net1)
+        self.nsap.bind(self.msap, net1)
 
 #
 #   __main__
@@ -260,14 +264,14 @@ def main():
         vlan_app.add_object(ravo)
 
     # start up the client
-    router.mqtt_client.startup()
+    router.mse.startup()
 
     _log.debug("running")
 
     run()
 
     # shutdown the client
-    router.mqtt_client.shutdown()
+    router.mse.shutdown()
 
     _log.debug("fini")
 

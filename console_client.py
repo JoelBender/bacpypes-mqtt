@@ -84,10 +84,14 @@ class MQTTApplication(ApplicationIOController, WhoIsIAmServices, ReadWriteProper
         bind(self, self.asap, self.smap, self.nsap)
 
         # create an MQTT client
-        self.mqtt_client = bacpypes_mqtt.MQTTClient(lan, localAddress, args.host, port=args.port, keepalive=args.keepalive)
+        self.msap = bacpypes_mqtt.MQTTClient(lan, localAddress, args.host, port=args.port, keepalive=args.keepalive)
+
+        # create a service element for the client
+        self.mse = bacpypes_mqtt.MQTTServiceElement()
+        bind(self.mse, self.msap)
 
         # bind the stack to the virtual network, no network number
-        self.nsap.bind(self.mqtt_client)
+        self.nsap.bind(self.msap)
 
         # keep track of requests to line up responses
         self._request = None
@@ -341,14 +345,14 @@ def main():
     enable_sleeping()
 
     # start up the client
-    this_application.mqtt_client.startup()
+    this_application.mse.startup()
 
     _log.debug("running")
 
     run()
 
     # shutdown the client
-    this_application.mqtt_client.shutdown()
+    this_application.mse.shutdown()
 
     _log.debug("fini")
 

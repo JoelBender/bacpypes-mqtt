@@ -7,7 +7,7 @@ This module provides a virtual link layer using MQTT.
 from bacpypes.errors import EncodingError, DecodingError
 from bacpypes.debugging import bacpypes_debugging, DebugContents, ModuleLogger, btox
 
-from bacpypes.comm import Server
+from bacpypes.comm import Server, ServiceAccessPoint, ApplicationServiceElement
 from bacpypes.core import deferred
 
 from bacpypes.pdu import Address, LocalBroadcast, PCI, PDUData, PDU
@@ -492,11 +492,16 @@ register_bvlpdu_type(OriginalBroadcastNPDU)
 #
 
 @bacpypes_debugging
-class MQTTClient(Server):
+class MQTTClient(ServiceAccessPoint, Server):
 
-    def __init__(self, lan, client, host=default_broker_host, port=default_broker_port, keepalive=default_broker_keepalive):
+    def __init__(self,
+        lan, client,
+        host=default_broker_host, port=default_broker_port, keepalive=default_broker_keepalive,
+        sap=None, sid=None,
+    ):
         if _debug: MQTTClient._debug("__init__ %r %r %r %r %r", lan, client, host, port, keepalive)
-        Server.__init__(self)
+        ServiceAccessPoint.__init__(self, sap)
+        Server.__init__(self, sid)
 
         # save the lan and client address
         self.lan = lan
@@ -531,55 +536,6 @@ class MQTTClient(Server):
         # set the last will
         response = self.mqtt_client.will_set(self.broadcast_topic, lost_connection.as_bytes(), 0, False)
         if _debug: MQTTClient._debug("    - will_set: %r", response)
-
-    def startup(self):
-        if _debug: MQTTClient._debug("startup")
-
-        # queue up a start the connection process
-        response = self.mqtt_client.connect(self.host, self.port, self.keepalive)
-        if _debug: MQTTClient._debug("    - connect: %r", response)
-
-        result, mid = self.mqtt_client.subscribe(self.local_topic, qos=1)
-        if _debug: MQTTClient._debug("    - local subscribe result, mid: %r, %r", result, mid)
-
-        result, mid = self.mqtt_client.subscribe(self.broadcast_topic, qos=1)
-        if _debug: MQTTClient._debug("    - broadcast subscribe result, mid: %r, %r", result, mid)
-
-        # build an Online PDU, encode it
-        online = Online(self.client)
-
-        # we are ready to roll
-        response = self.mqtt_client.publish(self.broadcast_topic, online.as_bytes())
-        if _debug: MQTTClient._debug("    - publish online: %r", response)
-
-        # start the client loop
-        response = self.mqtt_client.loop_start()
-        if _debug: MQTTClient._debug("    - loop_start: %r", response)
-
-    def shutdown(self):
-        if _debug: MQTTClient._debug("shutdown")
-
-        # stop listening
-        result, mid = self.mqtt_client.unsubscribe(self.broadcast_topic)
-        if _debug: MQTTClient._debug("    - broadcast unsubscribe result, mid: %r, %r", result, mid)
-
-        result, mid = self.mqtt_client.unsubscribe(self.local_topic)
-        if _debug: MQTTClient._debug("    - local unsubscribe result, mid: %r, %r", result, mid)
-
-        # build an Offline PDU, encode it
-        offline = Offline(self.client)
-
-        # we are going away
-        response = self.mqtt_client.publish(self.broadcast_topic, offline.as_bytes())
-        if _debug: MQTTClient._debug("    - publish offline: %r", response)
-
-        # disconnect
-        response = self.mqtt_client.disconnect()
-        if _debug: MQTTClient._debug("    - disconnect: %r", response)
-
-        # stop the client loop
-        response = self.mqtt_client.loop_stop()
-        if _debug: MQTTClient._debug("    - loop_stop: %r", response)
 
     def on_connect(self, client, userdata, flags, rc):
         """Callback for when the client receives a CONNACK response from the server.
@@ -677,4 +633,76 @@ class MQTTClient(Server):
 
         else:
             MQTTClient._warning("invalid destination address: %r", pdu.pduDestination)
+
+    def sap_indication(self, blvpdu):
+        if _debug: MQTTClient._debug("sap_indication %r", blvpdu)
+
+    def sap_confirmation(self, blvpdu):
+        if _debug: MQTTClient._debug("sap_confirmation %r", blvpdu)
+
+#
+#   MQTTServiceElement
+#
+
+@bacpypes_debugging
+class MQTTServiceElement(ApplicationServiceElement):
+
+    def __init__(self, eid=None):
+        if _debug: MQTTServiceElement._debug("__init__ eid=%r", eid)
+        ApplicationServiceElement.__init__(self, eid)
+
+    def startup(self):
+        if _debug: MQTTServiceElement._debug("startup")
+
+        # service access point has client
+        sap = self.elementService
+
+        # queue up a start the connection process
+        response = sap.mqtt_client.connect(sap.host, sap.port, sap.keepalive)
+        if _debug: MQTTServiceElement._debug("    - connect: %r", response)
+
+        result, mid = sap.mqtt_client.subscribe(sap.local_topic, qos=1)
+        if _debug: MQTTServiceElement._debug("    - local subscribe result, mid: %r, %r", result, mid)
+
+        result, mid = sap.mqtt_client.subscribe(sap.broadcast_topic, qos=1)
+        if _debug: MQTTServiceElement._debug("    - broadcast subscribe result, mid: %r, %r", result, mid)
+
+        # build an Online PDU, encode it
+        online = Online(sap.client)
+
+        # we are ready to roll
+        response = sap.mqtt_client.publish(sap.broadcast_topic, online.as_bytes())
+        if _debug: MQTTServiceElement._debug("    - publish online: %r", response)
+
+        # start the client loop
+        response = sap.mqtt_client.loop_start()
+        if _debug: MQTTServiceElement._debug("    - loop_start: %r", response)
+
+    def shutdown(self):
+        if _debug: MQTTServiceElement._debug("shutdown")
+
+        # service access point has client
+        sap = self.elementService
+
+        # stop listening
+        result, mid = sap.mqtt_client.unsubscribe(sap.broadcast_topic)
+        if _debug: MQTTServiceElement._debug("    - broadcast unsubscribe result, mid: %r, %r", result, mid)
+
+        result, mid = sap.mqtt_client.unsubscribe(sap.local_topic)
+        if _debug: MQTTServiceElement._debug("    - local unsubscribe result, mid: %r, %r", result, mid)
+
+        # build an Offline PDU, encode it
+        offline = Offline(sap.client)
+
+        # we are going away
+        response = sap.mqtt_client.publish(sap.broadcast_topic, offline.as_bytes())
+        if _debug: MQTTServiceElement._debug("    - publish offline: %r", response)
+
+        # disconnect
+        response = sap.mqtt_client.disconnect()
+        if _debug: MQTTServiceElement._debug("    - disconnect: %r", response)
+
+        # stop the client loop
+        response = sap.mqtt_client.loop_stop()
+        if _debug: MQTTServiceElement._debug("    - loop_stop: %r", response)
 

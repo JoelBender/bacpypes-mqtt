@@ -47,7 +47,11 @@ class MQTT2IPRouter:
         #== First stack
 
         # create an MQTT client
-        self.s1_client = bacpypes_mqtt.MQTTClient(lan, addr1, args.host, port=args.port, keepalive=args.keepalive)
+        self.s1_msap = bacpypes_mqtt.MQTTClient(lan, addr1, args.host, port=args.port, keepalive=args.keepalive)
+
+        # create a service element for the client
+        self.s1_mse = bacpypes_mqtt.MQTTServiceElement()
+        bind(self.s1_mse, self.s1_msap)
 
         # bind to the MQTT network
         self.nsap.bind(self.s1_client, net1)
@@ -120,14 +124,14 @@ def main():
     if _debug: _log.debug("    - router: %r", router)
 
     # start up the client
-    router.s1_client.startup()
+    router.s1_mse.startup()
 
     _log.debug("running")
 
     run()
 
     # shutdown the client
-    router.s1_client.shutdown()
+    router.s1_se.shutdown()
 
     _log.debug("fini")
 
