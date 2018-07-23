@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 """
-This sample application presents itself as a router between a BACnet/IP
-and BACnet/MQTT network.  Note that the length of the B/MQTT address is set
+This sample application presents itself as a router between a BACnet/MQTT
+and BACnet/IP network.  Note that the length of the B/MQTT address is set
 in the bacpypes_mqtt module.  As a router, this does not have an application
 layer.
 """
@@ -54,7 +54,7 @@ class MQTT2IPRouter:
         bind(self.s1_mse, self.s1_msap)
 
         # bind to the MQTT network
-        self.nsap.bind(self.s1_client, net1)
+        self.nsap.bind(self.s1_msap, net1)
 
         #== Second stack
 
@@ -131,7 +131,7 @@ def main():
     run()
 
     # shutdown the client
-    router.s1_se.shutdown()
+    router.s1_mse.shutdown()
 
     _log.debug("fini")
 
