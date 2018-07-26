@@ -20,7 +20,7 @@ _log = ModuleLogger(globals())
 
 # settings
 ADDRESS_LENGTH = 6
-BROADCAST_ADDRESS = Address(b'\x80' + b'\x00' * (ADDRESS_LENGTH - 1))
+BROADCAST_ADDRESS = Address(b'\xFF' * ADDRESS_LENGTH)
 
 # settings
 default_lan_name = "bacpypes-mqtt"
