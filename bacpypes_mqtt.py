@@ -4,6 +4,9 @@
 This module provides a virtual link layer using MQTT.
 """
 
+from functools import reduce
+from struct import unpack
+
 from bacpypes.errors import EncodingError, DecodingError
 from bacpypes.debugging import bacpypes_debugging, DebugContents, ModuleLogger, btox
 
@@ -19,14 +22,21 @@ _debug = 0
 _log = ModuleLogger(globals())
 
 # settings
-ADDRESS_LENGTH = 6
-BROADCAST_ADDRESS = Address(b'\xFF' * ADDRESS_LENGTH)
+ADDRESS_LENGTH = 3
+BROADCAST_TOPIC = 'b'
 
-# settings
-default_lan_name = "bacpypes-mqtt"
+default_lan_name = "b"
 default_broker_host = "test.mosquitto.org"
 default_broker_port = 1883
 default_broker_keepalive = 60
+
+#
+#   str_address
+#
+
+def str_address(addr):
+    """Return a decimal encoded string of the address."""
+    return str(reduce(lambda x, y: (x << 8) + y, unpack('b' * ADDRESS_LENGTH, addr.addrAddr)))
 
 # a dictionary of message type values and classes
 bvl_pdu_types = {}
@@ -524,10 +534,10 @@ class MQTTClient(ServiceAccessPoint, Server):
         # we are not connected
         self.mqtt_connected = False
 
-        self.local_topic = self.lan + '/' + btox(client.addrAddr)
+        self.local_topic = self.lan + '/' + str_address(client)
         if _debug: MQTTClient._debug("    - local topic: %r", self.local_topic)
 
-        self.broadcast_topic = self.lan + '/' + btox(BROADCAST_ADDRESS.addrAddr)
+        self.broadcast_topic = self.lan + '/' + BROADCAST_TOPIC
         if _debug: MQTTClient._debug("    - broadcast topic: %r", self.broadcast_topic)
 
         # build a LostConnection last will, encode it
@@ -611,7 +621,7 @@ class MQTTClient(ServiceAccessPoint, Server):
             xpdu = OriginalUnicastNPDU(self.client, pdu, user_data=pdu.pduUserData)
             if _debug: MQTTClient._debug("    - original unicast xpdu: %r", xpdu)
 
-            destination_topic = self.lan + '/' + btox(pdu.pduDestination.addrAddr)
+            destination_topic = self.lan + '/' + str_address(pdu.pduDestination)
             if _debug: MQTTClient._debug("    - destination_topic: %r", destination_topic)
 
             # send it to the address
