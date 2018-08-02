@@ -1,5 +1,7 @@
 # BACpypes-MQTT
 
+[![Join the chat at https://gitter.im/bacpypes-mqtt/Lobby](https://badges.gitter.im/bacpypes-mqtt/Lobby.svg)](https://gitter.im/bacpypes-mqtt/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Exploring MQTT as a virtual link layer for BACnet
 
 During the BACnet IT Working Group discussions about the upcoming BACnet/SC
