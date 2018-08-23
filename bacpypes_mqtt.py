@@ -23,10 +23,10 @@ _log = ModuleLogger(globals())
 
 # settings
 ADDRESS_LENGTH = 3
-BROADCAST_TOPIC = 'b'
+BROADCAST_TOPIC = '@all'
 
-default_lan_name = "b"
-default_broker_host = "test.mosquitto.org"
+default_lan_name = 'b'
+default_broker_host = 'test.mosquitto.org'
 default_broker_port = 1883
 default_broker_keepalive = 60
 
@@ -36,7 +36,7 @@ default_broker_keepalive = 60
 
 def str_address(addr):
     """Return a decimal encoded string of the address."""
-    return str(reduce(lambda x, y: (x << 8) + y, unpack('b' * ADDRESS_LENGTH, addr.addrAddr)))
+    return str(unpack(">I", b'\0' + addr.addrAddr))
 
 # a dictionary of message type values and classes
 bvl_pdu_types = {}
@@ -60,6 +60,8 @@ class BVLCI(PCI, DebugContents):
     lostConnection                      = 0x04
     originalUnicastNPDU                 = 0x05
     originalBroadcastNPDU               = 0x06
+    joinGroup                           = 0x07
+    leaveGroup                          = 0x08
 
     def __init__(self, *args, **kwargs):
         if _debug: BVLCI._debug("__init__ %r %r", args, kwargs)
@@ -495,6 +497,76 @@ class OriginalBroadcastNPDU(BVLPDU):
 register_bvlpdu_type(OriginalBroadcastNPDU)
 
 #
+#   JoinGroup
+#
+
+class JoinGroup(BVLPDU):
+
+    _debug_contents = ('bvlciAddress',)
+
+    messageType = BVLCI.joinGroup
+
+    def __init__(self, addr=None, *args, **kwargs):
+        super(JoinGroup, self).__init__(*args, **kwargs)
+
+        self.bvlciFunction = BVLCI.joinGroup
+        self.bvlciLength = 4 + ADDRESS_LENGTH
+        self.bvlciAddress = addr
+
+    def encode(self, bvlpdu):
+        BVLCI.update(bvlpdu, self)
+        bvlpdu.put_data(self.bvlciAddress.addrAddr)
+
+    def decode(self, bvlpdu):
+        BVLCI.update(self, bvlpdu)
+        self.bvlciAddress = Address(bvlpdu.get_data(ADDRESS_LENGTH))
+
+    def bvlpdu_contents(self, use_dict=None, as_class=dict):
+        """Return the contents of an object as a dict."""
+        return key_value_contents(use_dict=use_dict, as_class=as_class,
+            key_values=(
+                ('function', 'JoinGroup'),
+                ('address', self.bvlciAddress),
+            ))
+
+register_bvlpdu_type(JoinGroup)
+
+#
+#   LeaveGroup
+#
+
+class LeaveGroup(BVLPDU):
+
+    _debug_contents = ('bvlciAddress',)
+
+    messageType = BVLCI.leaveGroup
+
+    def __init__(self, addr=None, *args, **kwargs):
+        super(LeaveGroup, self).__init__(*args, **kwargs)
+
+        self.bvlciFunction = BVLCI.leaveGroup
+        self.bvlciLength = 4 + ADDRESS_LENGTH
+        self.bvlciAddress = addr
+
+    def encode(self, bvlpdu):
+        BVLCI.update(bvlpdu, self)
+        bvlpdu.put_data(self.bvlciAddress.addrAddr)
+
+    def decode(self, bvlpdu):
+        BVLCI.update(self, bvlpdu)
+        self.bvlciAddress = Address(bvlpdu.get_data(ADDRESS_LENGTH))
+
+    def bvlpdu_contents(self, use_dict=None, as_class=dict):
+        """Return the contents of an object as a dict."""
+        return key_value_contents(use_dict=use_dict, as_class=as_class,
+            key_values=(
+                ('function', 'LeaveGroup'),
+                ('address', self.bvlciAddress),
+            ))
+
+register_bvlpdu_type(LeaveGroup)
+
+#
 #   MQTTClient
 #
 #   This class is a mapping between the client/server pattern and the
@@ -567,8 +639,7 @@ class MQTTClient(ServiceAccessPoint, Server):
     def on_message(self, client, userdata, msg):
         """Callback for when a PUBLISH message is received from the server.
         """
-        if _debug: MQTTClient._debug("on_message ...")
-        if _debug: MQTTClient._debug("    - payload: %r", btox(msg.payload))
+        if _debug: MQTTClient._debug("on_message %r, %s", msg.topic, btox(msg.payload, '.'))
 
         # wrap it up and decode it
         pdu = PDU(msg.payload)
@@ -630,12 +701,9 @@ class MQTTClient(ServiceAccessPoint, Server):
 
         # check for broadcasts
         elif pdu.pduDestination.addrType == Address.localBroadcastAddr:
-            try:
-                # make an original broadcast PDU
-                xpdu = OriginalBroadcastNPDU(self.client, pdu, user_data=pdu.pduUserData)
-                if _debug: MQTTClient._debug("    - original broadcast xpdu: %r", xpdu)
-            except Exception as err:
-                print("error " + str(err))
+            # make an original broadcast PDU
+            xpdu = OriginalBroadcastNPDU(self.client, pdu, user_data=pdu.pduUserData)
+            if _debug: MQTTClient._debug("    - original broadcast xpdu: %r", xpdu)
 
             # send it to the address
             response = self.mqtt_client.publish(self.broadcast_topic, xpdu.as_bytes())
@@ -671,11 +739,12 @@ class MQTTServiceElement(ApplicationServiceElement):
         response = sap.mqtt_client.connect(sap.host, sap.port, sap.keepalive)
         if _debug: MQTTServiceElement._debug("    - connect: %r", response)
 
-        result, mid = sap.mqtt_client.subscribe(sap.local_topic, qos=1)
+        # subscribe to both topics at the same time
+        result, mid = sap.mqtt_client.subscribe([
+            (sap.local_topic, 1),
+            (sap.broadcast_topic, 1),
+            ])
         if _debug: MQTTServiceElement._debug("    - local subscribe result, mid: %r, %r", result, mid)
-
-        result, mid = sap.mqtt_client.subscribe(sap.broadcast_topic, qos=1)
-        if _debug: MQTTServiceElement._debug("    - broadcast subscribe result, mid: %r, %r", result, mid)
 
         # build an Online PDU, encode it
         online = Online(sap.client)
