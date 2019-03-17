@@ -45,54 +45,74 @@ args = None
 #   RandomValueProperty
 #
 
+
 @bacpypes_debugging
 class RandomValueProperty(Property):
-
     def __init__(self, identifier):
-        if _debug: RandomValueProperty._debug("__init__ %r", identifier)
-        Property.__init__(self, identifier, Real, default=None, optional=True, mutable=False)
+        if _debug:
+            RandomValueProperty._debug("__init__ %r", identifier)
+        Property.__init__(
+            self, identifier, Real, default=None, optional=True, mutable=False
+        )
 
     def ReadProperty(self, obj, arrayIndex=None):
-        if _debug: RandomValueProperty._debug("ReadProperty %r arrayIndex=%r", obj, arrayIndex)
+        if _debug:
+            RandomValueProperty._debug("ReadProperty %r arrayIndex=%r", obj, arrayIndex)
 
         # access an array
         if arrayIndex is not None:
-            raise ExecutionError(errorClass='property', errorCode='propertyIsNotAnArray')
+            raise ExecutionError(
+                errorClass="property", errorCode="propertyIsNotAnArray"
+            )
 
         # return a random value
         value = random.random() * 100.0
-        if _debug: RandomValueProperty._debug("    - value: %r", value)
+        if _debug:
+            RandomValueProperty._debug("    - value: %r", value)
 
         return value
 
     def WriteProperty(self, obj, value, arrayIndex=None, priority=None, direct=False):
-        if _debug: RandomValueProperty._debug("WriteProperty %r %r arrayIndex=%r priority=%r direct=%r", obj, value, arrayIndex, priority, direct)
-        raise ExecutionError(errorClass='property', errorCode='writeAccessDenied')
+        if _debug:
+            RandomValueProperty._debug(
+                "WriteProperty %r %r arrayIndex=%r priority=%r direct=%r",
+                obj,
+                value,
+                arrayIndex,
+                priority,
+                direct,
+            )
+        raise ExecutionError(errorClass="property", errorCode="writeAccessDenied")
+
 
 #
 #   Random Value Object Type
 #
 
+
 @bacpypes_debugging
 class RandomAnalogValueObject(AnalogValueObject):
 
-    properties = [
-        RandomValueProperty('presentValue'),
-        ]
+    properties = [RandomValueProperty("presentValue")]
 
     def __init__(self, **kwargs):
-        if _debug: RandomAnalogValueObject._debug("__init__ %r", kwargs)
+        if _debug:
+            RandomAnalogValueObject._debug("__init__ %r", kwargs)
         AnalogValueObject.__init__(self, **kwargs)
+
 
 #
 #   VLANApplication
 #
 
+
 @bacpypes_debugging
 class VLANApplication(Application, WhoIsIAmServices, ReadWritePropertyServices):
-
     def __init__(self, vlan_device, vlan_address, aseID=None):
-        if _debug: VLANApplication._debug("__init__ %r %r aseID=%r", vlan_device, vlan_address, aseID)
+        if _debug:
+            VLANApplication._debug(
+                "__init__ %r %r aseID=%r", vlan_device, vlan_address, aseID
+            )
         Application.__init__(self, vlan_device, vlan_address, aseID)
 
         # include a application decoder
@@ -123,30 +143,36 @@ class VLANApplication(Application, WhoIsIAmServices, ReadWritePropertyServices):
         self.nsap.bind(self.vlan_node)
 
     def request(self, apdu):
-        if _debug: VLANApplication._debug("[%s]request %r", self.vlan_node.address, apdu)
+        if _debug:
+            VLANApplication._debug("[%s]request %r", self.vlan_node.address, apdu)
         Application.request(self, apdu)
 
     def indication(self, apdu):
-        if _debug: VLANApplication._debug("[%s]indication %r", self.vlan_node.address, apdu)
+        if _debug:
+            VLANApplication._debug("[%s]indication %r", self.vlan_node.address, apdu)
         Application.indication(self, apdu)
 
     def response(self, apdu):
-        if _debug: VLANApplication._debug("[%s]response %r", self.vlan_node.address, apdu)
+        if _debug:
+            VLANApplication._debug("[%s]response %r", self.vlan_node.address, apdu)
         Application.response(self, apdu)
 
     def confirmation(self, apdu):
-        if _debug: VLANApplication._debug("[%s]confirmation %r", self.vlan_node.address, apdu)
+        if _debug:
+            VLANApplication._debug("[%s]confirmation %r", self.vlan_node.address, apdu)
         Application.confirmation(self, apdu)
+
 
 #
 #   VLANRouter
 #
 
+
 @bacpypes_debugging
 class VLANRouter:
-
     def __init__(self, lan, addr1, net1):
-        if _debug: VLANRouter._debug("__init__ %r %r %r", lan, addr1, net1)
+        if _debug:
+            VLANRouter._debug("__init__ %r %r %r", lan, addr1, net1)
 
         # a network service access point will be needed
         self.nsap = NetworkServiceAccessPoint()
@@ -156,7 +182,9 @@ class VLANRouter:
         bind(self.nse, self.nsap)
 
         # create an MQTT client
-        self.msap = bacpypes_mqtt.MQTTClient(lan, addr1, args.host, port=args.port, keepalive=args.keepalive)
+        self.msap = bacpypes_mqtt.MQTTClient(
+            lan, addr1, args.host, port=args.port, keepalive=args.keepalive
+        )
 
         # create a service element for the client
         self.mse = bacpypes_mqtt.MQTTServiceElement()
@@ -165,9 +193,11 @@ class VLANRouter:
         # bind to the MQTT network
         self.nsap.bind(self.msap, net1)
 
+
 #
 #   __main__
 #
+
 
 def main():
     global args
@@ -176,44 +206,43 @@ def main():
     parser = ArgumentParser(description=__doc__)
 
     # arguments for first network
-    parser.add_argument('lan', type=str,
-          help='MQTT network name',
-          )
-    parser.add_argument('addr1', type=str,
-          help='address on MQTT network',
-          )
-    parser.add_argument('net1', type=int,
-          help='network number of MQTT network',
-          )
+    parser.add_argument("lan", type=str, help="MQTT network name")
+    parser.add_argument("addr1", type=str, help="address on MQTT network")
+    parser.add_argument("net1", type=int, help="network number of MQTT network")
 
     # VLAN arguments
-    parser.add_argument('net2', type=int,
-          help='network number of VLAN',
-          )
-    parser.add_argument('--count', type=int,
-          help='number of virtual devices',
-          default=1,
-          )
+    parser.add_argument("net2", type=int, help="network number of VLAN")
+    parser.add_argument(
+        "--count", type=int, help="number of virtual devices", default=1
+    )
 
     # additional options for the MQTT client
-    parser.add_argument('--host', type=str,
+    parser.add_argument(
+        "--host",
+        type=str,
         default=bacpypes_mqtt.default_broker_host,
-        help='broker host address',
-        )
-    parser.add_argument('--port', type=int,
+        help="broker host address",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
         default=bacpypes_mqtt.default_broker_port,
-        help='broker port',
-        )
-    parser.add_argument('--keepalive', type=int,
+        help="broker port",
+    )
+    parser.add_argument(
+        "--keepalive",
+        type=int,
         default=bacpypes_mqtt.default_broker_keepalive,
         help="maximum period in seconds allowed between communications with the broker",
-        )
+    )
 
     # now parse the arguments
     args = parser.parse_args()
 
-    if _debug: _log.debug("initialization")
-    if _debug: _log.debug("    - args: %r", args)
+    if _debug:
+        _log.debug("initialization")
+    if _debug:
+        _log.debug("    - args: %r", args)
 
     # create the VLAN router, bind it to the local network
     router = VLANRouter(args.lan, Address(args.addr1), args.net1)
@@ -235,14 +264,13 @@ def main():
         _log.debug("    - device_instance: %r", device_instance)
 
         # make a vlan device object
-        vlan_device = \
-            LocalDeviceObject(
-                objectName="VLAN Node %d" % (device_instance,),
-                objectIdentifier=('device', device_instance),
-                maxApduLengthAccepted=1024,
-                segmentationSupported='noSegmentation',
-                vendorIdentifier=15,
-                )
+        vlan_device = LocalDeviceObject(
+            objectName="VLAN Node %d" % (device_instance,),
+            objectIdentifier=("device", device_instance),
+            maxApduLengthAccepted=1024,
+            segmentationSupported="noSegmentation",
+            vendorIdentifier=15,
+        )
         _log.debug("    - vlan_device: %r", vlan_device)
 
         vlan_address = Address(device_number)
@@ -255,9 +283,9 @@ def main():
 
         # make a random value object
         ravo = RandomAnalogValueObject(
-            objectIdentifier=('analogValue', 1),
-            objectName='Random-1-%d' % (device_instance,),
-            )
+            objectIdentifier=("analogValue", 1),
+            objectName="Random-1-%d" % (device_instance,),
+        )
         _log.debug("    - ravo: %r", ravo)
 
         # add it to the device

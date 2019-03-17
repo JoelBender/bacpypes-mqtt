@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
 """
-This application presents a 'console' prompt to the user asking for read commands
-which create ReadPropertyRequest PDUs, then lines up the coorresponding ReadPropertyACK
-and prints the value.
+This application presents a 'console' prompt to the user asking for Who-Is,
+I-Am, or Read-Property commands.
 """
 
 import sys
@@ -13,18 +12,18 @@ from bacpypes.consolelogging import ConfigArgumentParser
 from bacpypes.consolecmd import ConsoleCmd
 
 from bacpypes.comm import bind
-from bacpypes.core import run, enable_sleeping
+from bacpypes.core import run, deferred, enable_sleeping
 from bacpypes.iocb import IOCB
 
 from bacpypes.pdu import Address, GlobalBroadcast
 from bacpypes.apdu import WhoIsRequest, IAmRequest, ReadPropertyRequest, ReadPropertyACK
-from bacpypes.primitivedata import Unsigned
+from bacpypes.primitivedata import Unsigned, ObjectIdentifier
 from bacpypes.constructeddata import Array
 
 from bacpypes.app import ApplicationIOController
 from bacpypes.appservice import StateMachineAccessPoint, ApplicationServiceAccessPoint
 from bacpypes.netservice import NetworkServiceAccessPoint, NetworkServiceElement
-from bacpypes.object import get_object_class, get_datatype
+from bacpypes.object import get_datatype
 from bacpypes.local.device import LocalDeviceObject
 
 # basic services
@@ -46,19 +45,35 @@ this_application = None
 #   MQTTApplication
 #
 
-@bacpypes_debugging
-class MQTTApplication(ApplicationIOController, WhoIsIAmServices, ReadWritePropertyServices):
 
-    def __init__(self, localDevice, lan, localAddress, deviceInfoCache=None, aseID=None):
-        if _debug: MQTTApplication._debug("__init__ %r %r %r deviceInfoCache=%r aseID=%r", localDevice, lan, localAddress, deviceInfoCache, aseID)
-        ApplicationIOController.__init__(self, localDevice, localAddress, deviceInfoCache, aseID=aseID)
+@bacpypes_debugging
+class MQTTApplication(
+    ApplicationIOController, WhoIsIAmServices, ReadWritePropertyServices
+):
+    def __init__(
+        self, localDevice, lan, localAddress, deviceInfoCache=None, aseID=None
+    ):
+        if _debug:
+            MQTTApplication._debug(
+                "__init__ %r %r %r deviceInfoCache=%r aseID=%r",
+                localDevice,
+                lan,
+                localAddress,
+                deviceInfoCache,
+                aseID,
+            )
+        ApplicationIOController.__init__(
+            self, localDevice, localAddress, deviceInfoCache, aseID=aseID
+        )
         global args
 
         # local address might be useful for subclasses
         if isinstance(localAddress, str):
             localAddress = Address(localAddress)
         if len(localAddress.addrAddr) != bacpypes_mqtt.ADDRESS_LENGTH:
-            raise ValueError("local address must be %d octets" % (bacpypes_mqtt.ADDRESS_LENGTH,))
+            raise ValueError(
+                "local address must be %d octets" % (bacpypes_mqtt.ADDRESS_LENGTH,)
+            )
 
         self.localAddress = localAddress
 
@@ -84,7 +99,9 @@ class MQTTApplication(ApplicationIOController, WhoIsIAmServices, ReadWriteProper
         bind(self, self.asap, self.smap, self.nsap)
 
         # create an MQTT client
-        self.msap = bacpypes_mqtt.MQTTClient(lan, localAddress, args.host, port=args.port, keepalive=args.keepalive)
+        self.msap = bacpypes_mqtt.MQTTClient(
+            lan, localAddress, args.host, port=args.port, keepalive=args.keepalive
+        )
 
         # create a service element for the client
         self.mse = bacpypes_mqtt.MQTTServiceElement()
@@ -97,7 +114,8 @@ class MQTTApplication(ApplicationIOController, WhoIsIAmServices, ReadWriteProper
         self._request = None
 
     def request(self, apdu):
-        if _debug: MQTTApplication._debug("request %r", apdu)
+        if _debug:
+            MQTTApplication._debug("request %r", apdu)
 
         # save a copy of the request
         self._request = apdu
@@ -106,51 +124,64 @@ class MQTTApplication(ApplicationIOController, WhoIsIAmServices, ReadWriteProper
         super(MQTTApplication, self).request(apdu)
 
     def indication(self, apdu):
-        if _debug: MQTTApplication._debug("indication %r", apdu)
+        if _debug:
+            MQTTApplication._debug("indication %r", apdu)
 
         if (isinstance(self._request, WhoIsRequest)) and (isinstance(apdu, IAmRequest)):
             device_type, device_instance = apdu.iAmDeviceIdentifier
-            if (self._request.deviceInstanceRangeLowLimit is not None) and \
-                    (device_instance < self._request.deviceInstanceRangeLowLimit):
+            if (self._request.deviceInstanceRangeLowLimit is not None) and (
+                device_instance < self._request.deviceInstanceRangeLowLimit
+            ):
                 pass
-            elif (self._request.deviceInstanceRangeHighLimit is not None) and \
-                    (device_instance > self._request.deviceInstanceRangeHighLimit):
+            elif (self._request.deviceInstanceRangeHighLimit is not None) and (
+                device_instance > self._request.deviceInstanceRangeHighLimit
+            ):
                 pass
             else:
                 # print out the contents
-                sys.stdout.write('pduSource = ' + repr(apdu.pduSource) + '\n')
-                sys.stdout.write('iAmDeviceIdentifier = ' + str(apdu.iAmDeviceIdentifier) + '\n')
-                sys.stdout.write('maxAPDULengthAccepted = ' + str(apdu.maxAPDULengthAccepted) + '\n')
-                sys.stdout.write('segmentationSupported = ' + str(apdu.segmentationSupported) + '\n')
-                sys.stdout.write('vendorID = ' + str(apdu.vendorID) + '\n')
+                sys.stdout.write("pduSource = " + repr(apdu.pduSource) + "\n")
+                sys.stdout.write(
+                    "iAmDeviceIdentifier = " + str(apdu.iAmDeviceIdentifier) + "\n"
+                )
+                sys.stdout.write(
+                    "maxAPDULengthAccepted = " + str(apdu.maxAPDULengthAccepted) + "\n"
+                )
+                sys.stdout.write(
+                    "segmentationSupported = " + str(apdu.segmentationSupported) + "\n"
+                )
+                sys.stdout.write("vendorID = " + str(apdu.vendorID) + "\n")
                 sys.stdout.flush()
 
         # forward it along
         super(MQTTApplication, self).indication(apdu)
 
     def response(self, apdu):
-        if _debug: MQTTApplication._debug("response %r", apdu)
+        if _debug:
+            MQTTApplication._debug("response %r", apdu)
 
         # forward it along
         super(MQTTApplication, self).response(apdu)
 
     def confirmation(self, apdu):
-        if _debug: MQTTApplication._debug("confirmation %r", apdu)
+        if _debug:
+            MQTTApplication._debug("confirmation %r", apdu)
 
         # forward it along
         super(MQTTApplication, self).confirmation(apdu)
+
 
 #
 #   ClientConsoleCmd
 #
 
+
 @bacpypes_debugging
 class ClientConsoleCmd(ConsoleCmd):
-
     def do_whois(self, args):
         """whois [ <addr>] [ <lolimit> <hilimit> ]"""
         args = args.split()
-        if _debug: ClientConsoleCmd._debug("do_whois %r", args)
+        if _debug:
+            ClientConsoleCmd._debug("do_whois %r", args)
 
         try:
             # build a request
@@ -164,11 +195,13 @@ class ClientConsoleCmd(ConsoleCmd):
             if len(args) == 2:
                 request.deviceInstanceRangeLowLimit = int(args[0])
                 request.deviceInstanceRangeHighLimit = int(args[1])
-            if _debug: ClientConsoleCmd._debug("    - request: %r", request)
+            if _debug:
+                ClientConsoleCmd._debug("    - request: %r", request)
 
             # make an IOCB
             iocb = IOCB(request)
-            if _debug: ClientConsoleCmd._debug("    - iocb: %r", iocb)
+            if _debug:
+                ClientConsoleCmd._debug("    - iocb: %r", iocb)
 
             # give it to the application
             this_application.request_io(iocb)
@@ -177,26 +210,32 @@ class ClientConsoleCmd(ConsoleCmd):
             ClientConsoleCmd._exception("exception: %r", err)
 
     def do_iam(self, args):
-        """iam"""
+        """iam [ addr ]"""
         args = args.split()
-        if _debug: ClientConsoleCmd._debug("do_iam %r", args)
+        if _debug:
+            ClientConsoleCmd._debug("do_iam %r", args)
         global this_device
 
         try:
             # build a request
             request = IAmRequest()
-            request.pduDestination = GlobalBroadcast()
+            if len(args) == 1:
+                request.pduDestination = Address(args[0])
+            else:
+                request.pduDestination = GlobalBroadcast()
 
             # set the parameters from the device object
             request.iAmDeviceIdentifier = this_device.objectIdentifier
             request.maxAPDULengthAccepted = this_device.maxApduLengthAccepted
             request.segmentationSupported = this_device.segmentationSupported
             request.vendorID = this_device.vendorIdentifier
-            if _debug: ClientConsoleCmd._debug("    - request: %r", request)
+            if _debug:
+                ClientConsoleCmd._debug("    - request: %r", request)
 
             # make an IOCB
             iocb = IOCB(request)
-            if _debug: ClientConsoleCmd._debug("    - iocb: %r", iocb)
+            if _debug:
+                ClientConsoleCmd._debug("    - iocb: %r", iocb)
 
             # give it to the application
             this_application.request_io(iocb)
@@ -207,46 +246,42 @@ class ClientConsoleCmd(ConsoleCmd):
     def do_read(self, args):
         """read <addr> <type> <inst> <prop> [ <indx> ]"""
         args = args.split()
-        if _debug: ClientConsoleCmd._debug("do_read %r", args)
+        if _debug:
+            ClientConsoleCmd._debug("do_read %r", args)
 
         try:
-            addr, obj_type, obj_inst, prop_id = args[:4]
+            addr, obj_id, prop_id = args[:3]
+            obj_id = ObjectIdentifier(obj_id).value
 
-            if obj_type.isdigit():
-                obj_type = int(obj_type)
-            elif not get_object_class(obj_type):
-                raise ValueError("unknown object type")
-
-            obj_inst = int(obj_inst)
-
-            datatype = get_datatype(obj_type, prop_id)
+            datatype = get_datatype(obj_id[0], prop_id)
             if not datatype:
                 raise ValueError("invalid property for object type")
 
             # build a request
             request = ReadPropertyRequest(
-                objectIdentifier=(obj_type, obj_inst),
-                propertyIdentifier=prop_id,
-                )
+                objectIdentifier=obj_id, propertyIdentifier=prop_id
+            )
             request.pduDestination = Address(addr)
 
             if len(args) == 5:
                 request.propertyArrayIndex = int(args[4])
-            if _debug: ClientConsoleCmd._debug("    - request: %r", request)
+            if _debug:
+                ClientConsoleCmd._debug("    - request: %r", request)
 
             # make an IOCB
             iocb = IOCB(request)
-            if _debug: ClientConsoleCmd._debug("    - iocb: %r", iocb)
+            if _debug:
+                ClientConsoleCmd._debug("    - iocb: %r", iocb)
 
             # give it to the application
-            this_application.request_io(iocb)
+            deferred(this_application.request_io, iocb)
 
             # wait for it to complete
             iocb.wait()
 
             # do something for error/reject/abort
             if iocb.ioError:
-                sys.stdout.write(str(iocb.ioError) + '\n')
+                sys.stdout.write(str(iocb.ioError) + "\n")
 
             # do something for success
             elif iocb.ioResponse:
@@ -254,33 +289,41 @@ class ClientConsoleCmd(ConsoleCmd):
 
                 # should be an ack
                 if not isinstance(apdu, ReadPropertyACK):
-                    if _debug: ClientConsoleCmd._debug("    - not an ack")
+                    if _debug:
+                        ClientConsoleCmd._debug("    - not an ack")
                     return
 
                 # find the datatype
-                datatype = get_datatype(apdu.objectIdentifier[0], apdu.propertyIdentifier)
-                if _debug: ClientConsoleCmd._debug("    - datatype: %r", datatype)
+                datatype = get_datatype(
+                    apdu.objectIdentifier[0], apdu.propertyIdentifier
+                )
+                if _debug:
+                    ClientConsoleCmd._debug("    - datatype: %r", datatype)
                 if not datatype:
                     raise TypeError("unknown datatype")
 
                 # special case for array parts, others are managed by cast_out
-                if issubclass(datatype, Array) and (apdu.propertyArrayIndex is not None):
+                if issubclass(datatype, Array) and (
+                    apdu.propertyArrayIndex is not None
+                ):
                     if apdu.propertyArrayIndex == 0:
                         value = apdu.propertyValue.cast_out(Unsigned)
                     else:
                         value = apdu.propertyValue.cast_out(datatype.subtype)
                 else:
                     value = apdu.propertyValue.cast_out(datatype)
-                if _debug: ClientConsoleCmd._debug("    - value: %r", value)
+                if _debug:
+                    ClientConsoleCmd._debug("    - value: %r", value)
 
-                sys.stdout.write(str(value) + '\n')
-                if hasattr(value, 'debug_contents'):
+                sys.stdout.write(str(value) + "\n")
+                if hasattr(value, "debug_contents"):
                     value.debug_contents(file=sys.stdout)
                 sys.stdout.flush()
 
             # do something with nothing?
             else:
-                if _debug: ClientConsoleCmd._debug("    - ioError or ioResponse expected")
+                if _debug:
+                    ClientConsoleCmd._debug("    - ioError or ioResponse expected")
 
         except Exception as error:
             ClientConsoleCmd._exception("exception: %r", error)
@@ -288,7 +331,8 @@ class ClientConsoleCmd(ConsoleCmd):
     def do_rtn(self, args):
         """rtn <addr> <net> ... """
         args = args.split()
-        if _debug: ClientConsoleCmd._debug("do_rtn %r", args)
+        if _debug:
+            ClientConsoleCmd._debug("do_rtn %r", args)
 
         # provide the address and a list of network numbers
         router_address = Address(args[0])
@@ -302,44 +346,54 @@ class ClientConsoleCmd(ConsoleCmd):
 #   __main__
 #
 
+
 def main():
     global args, this_device, this_application
 
     # build a parser, add some options
     parser = ConfigArgumentParser(description=__doc__)
-    parser.add_argument('--lan', type=str,
-        default=bacpypes_mqtt.default_lan_name,
-        help='lan name',
-        )
-    parser.add_argument('--host', type=str,
+    parser.add_argument(
+        "--lan", type=str, default=bacpypes_mqtt.default_lan_name, help="lan name"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
         default=bacpypes_mqtt.default_broker_host,
-        help='broker host address',
-        )
-    parser.add_argument('--port', type=int,
+        help="broker host address",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
         default=bacpypes_mqtt.default_broker_port,
-        help='broker port',
-        )
-    parser.add_argument('--keepalive', type=int,
+        help="broker port",
+    )
+    parser.add_argument(
+        "--keepalive",
+        type=int,
         default=bacpypes_mqtt.default_broker_keepalive,
         help="maximum period in seconds allowed between communications with the broker",
-        )
+    )
 
     # parse the command line arguments
     args = parser.parse_args()
 
-    if _debug: _log.debug("initialization")
-    if _debug: _log.debug("    - args: %r", args)
+    if _debug:
+        _log.debug("initialization")
+    if _debug:
+        _log.debug("    - args: %r", args)
 
     # make a device object
     this_device = LocalDeviceObject(ini=args.ini)
-    if _debug: _log.debug("    - this_device: %r", this_device)
+    if _debug:
+        _log.debug("    - this_device: %r", this_device)
 
     # make a simple application
     this_application = MQTTApplication(this_device, args.lan, args.ini.address)
 
     # make a console
     this_console = ClientConsoleCmd()
-    if _debug: _log.debug("    - this_console: %r", this_console)
+    if _debug:
+        _log.debug("    - this_console: %r", this_console)
 
     # enable sleeping will help with threads
     enable_sleeping()
@@ -356,6 +410,6 @@ def main():
 
     _log.debug("fini")
 
+
 if __name__ == "__main__":
     main()
-
