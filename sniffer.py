@@ -42,8 +42,7 @@ from bacpypes_mqtt import (
     default_broker_keepalive,
     BVLPDU,
     bvl_pdu_types,
-    OriginalUnicastNPDU,
-    OriginalBroadcastNPDU,
+    EncapsulatedNPDU,
 )
 
 # some debugging
@@ -93,7 +92,7 @@ def decode_packet(data, destination):
         pdu.pduSource = pdu.bvlciAddress
 
         # no deeper decoding for some
-        if atype not in (OriginalUnicastNPDU, OriginalBroadcastNPDU):
+        if atype != EncapsulatedNPDU:
             return pdu
 
     except Exception as err:

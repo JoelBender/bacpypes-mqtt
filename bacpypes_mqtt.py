@@ -59,9 +59,7 @@ def register_bvlpdu_type(klass):
 class BVLCI(PCI, DebugContents):
 
     _debug_contents = (
-#       "bvlciType",
         "bvlciFunction",
-#       "bvlciLength",
         )
 
     result = 0x00
@@ -69,25 +67,20 @@ class BVLCI(PCI, DebugContents):
     online = 0x02
     offline = 0x03
     lostConnection = 0x04
-    originalUnicastNPDU = 0x05
-    originalBroadcastNPDU = 0x06
-    joinGroup = 0x07
-    leaveGroup = 0x08
+    encapsulatedNPDU = 0x05
+    joinGroup = 0x06
+    leaveGroup = 0x07
 
     def __init__(self, *args, **kwargs):
         if _debug:
             BVLCI._debug("__init__ %r %r", args, kwargs)
         super(BVLCI, self).__init__(*args, **kwargs)
 
-#       self.bvlciType = 0x84
         self.bvlciFunction = None
-#       self.bvlciLength = None
 
     def update(self, bvlci):
         PCI.update(self, bvlci)
-#       self.bvlciType = bvlci.bvlciType
         self.bvlciFunction = bvlci.bvlciFunction
-#       self.bvlciLength = bvlci.bvlciLength
 
     def encode(self, pdu):
         """encode the contents of the BVLCI into the PDU."""
@@ -97,13 +90,7 @@ class BVLCI(PCI, DebugContents):
         # copy the basics
         PCI.update(pdu, self)
 
-#       pdu.put(self.bvlciType)  # 0x84
         pdu.put(self.bvlciFunction)
-
-#       if self.bvlciLength != len(self.pduData) + 4:
-#           raise EncodingError("invalid BVLCI length")
-#
-#       pdu.put_short(self.bvlciLength)
 
     def decode(self, pdu):
         """decode the contents of the PDU into the BVLCI."""
@@ -113,15 +100,7 @@ class BVLCI(PCI, DebugContents):
         # copy the basics
         PCI.update(self, pdu)
 
-#       self.bvlciType = pdu.get()
-#       if self.bvlciType != 0x84:
-#           raise DecodingError("invalid BVLCI type")
-
         self.bvlciFunction = pdu.get()
-#       self.bvlciLength = pdu.get_short()
-#
-#       if self.bvlciLength != len(pdu.pduData) + 4:
-#           raise DecodingError("invalid BVLCI length")
 
     def bvlci_contents(self, use_dict=None, as_class=dict):
         """Return the contents of an object as a dict."""
@@ -133,9 +112,7 @@ class BVLCI(PCI, DebugContents):
             use_dict = as_class()
 
         # save the mapped value
-#       use_dict.__setitem__("type", self.bvlciType)
         use_dict.__setitem__("function", self.bvlciFunction)
-#       use_dict.__setitem__("length", self.bvlciLength)
 
         # return what we built/updated
         return use_dict
@@ -246,7 +223,6 @@ class Result(BVLPDU):
         super(Result, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.result
-#       self.bvlciLength = 4 + ADDRESS_LENGTH + 2
         self.bvlciAddress = addr
         self.bvlciResultCode = code
 
@@ -286,7 +262,6 @@ class Poll(BVLPDU):
         super(Online, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.poll
-#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -323,7 +298,6 @@ class Online(BVLPDU):
         super(Online, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.online
-#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -360,7 +334,6 @@ class Offline(BVLPDU):
         super(Offline, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.offline
-#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -397,7 +370,6 @@ class LostConnection(BVLPDU):
         super(LostConnection, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.lostConnection
-#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -420,27 +392,23 @@ class LostConnection(BVLPDU):
 register_bvlpdu_type(LostConnection)
 
 #
-#   OriginalUnicastNPDU
+#   EncapsulatedNPDU
 #
 
 
-class OriginalUnicastNPDU(BVLPDU):
+class EncapsulatedNPDU(BVLPDU):
 
     _debug_contents = ("bvlciAddress",)
 
-    messageType = BVLCI.originalUnicastNPDU
+    messageType = BVLCI.encapsulatedNPDU
 
     def __init__(self, addr=None, *args, **kwargs):
-        super(OriginalUnicastNPDU, self).__init__(*args, **kwargs)
+        super(EncapsulatedNPDU, self).__init__(*args, **kwargs)
 
-        self.bvlciFunction = BVLCI.originalUnicastNPDU
-#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
+        self.bvlciFunction = BVLCI.encapsulatedNPDU
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
-        # make sure the length is correct
-#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
-
         BVLCI.update(bvlpdu, self)
 
         # encode the address
@@ -470,7 +438,7 @@ class OriginalUnicastNPDU(BVLPDU):
             use_dict=use_dict,
             as_class=as_class,
             key_values=(
-                ("function", "OriginalUnicastNPDU"),
+                ("function", "encapsulatedNPDU"),
                 ("address", self.bvlciAddress),
             ),
         )
@@ -482,72 +450,7 @@ class OriginalUnicastNPDU(BVLPDU):
         return use_dict
 
 
-register_bvlpdu_type(OriginalUnicastNPDU)
-
-#
-#   OriginalBroadcastNPDU
-#
-
-
-class OriginalBroadcastNPDU(BVLPDU):
-
-    _debug_contents = ("bvlciAddress",)
-
-    messageType = BVLCI.originalBroadcastNPDU
-
-    def __init__(self, addr=None, *args, **kwargs):
-        super(OriginalBroadcastNPDU, self).__init__(*args, **kwargs)
-
-        self.bvlciFunction = BVLCI.originalBroadcastNPDU
-#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
-        self.bvlciAddress = addr
-
-    def encode(self, bvlpdu):
-        # make sure the length is correct
-#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
-
-        BVLCI.update(bvlpdu, self)
-
-        # encode the address
-        bvlpdu.put_data(self.bvlciAddress.addrAddr)
-
-        # encode the rest of the data
-        bvlpdu.put_data(self.pduData)
-
-    def decode(self, bvlpdu):
-        BVLCI.update(self, bvlpdu)
-
-        # get the address
-        self.bvlciAddress = Address(bvlpdu.get_data(ADDRESS_LENGTH))
-
-        # get the rest of the data
-        self.pduData = bvlpdu.get_data(len(bvlpdu.pduData))
-
-    def bvlpdu_contents(self, use_dict=None, as_class=dict):
-        """Return the contents of an object as a dict."""
-
-        # make/extend the dictionary of content
-        if use_dict is None:
-            use_dict = as_class()
-
-        # call the normal procedure
-        key_value_contents(
-            use_dict=use_dict,
-            as_class=as_class,
-            key_values=(
-                ("function", "OriginalBroadcastNPDU"),
-                ("address", self.bvlciAddress),
-            ),
-        )
-
-        # this message has data
-        PDUData.dict_contents(self, use_dict=use_dict, as_class=as_class)
-
-        # return what we built/updated
-        return use_dict
-
-
-register_bvlpdu_type(OriginalBroadcastNPDU)
+register_bvlpdu_type(EncapsulatedNPDU)
 
 #
 #   JoinGroup
@@ -564,7 +467,6 @@ class JoinGroup(BVLPDU):
         super(JoinGroup, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.joinGroup
-#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -601,7 +503,6 @@ class LeaveGroup(BVLPDU):
         super(LeaveGroup, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.leaveGroup
-#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -717,6 +618,11 @@ class MQTTClient(ServiceAccessPoint, Server):
         if _debug:
             MQTTClient._debug("on_message %r, %s", msg.topic, btox(msg.payload, "."))
 
+        # get the topic
+        topic_address = msg.topic.split("/")[-1]
+        if _debug:
+            MQTTSniffer._debug("    - topic_address: %r", topic_address)
+
         # wrap it up and decode it
         pdu = PDU(msg.payload)
         bvlpdu = BVLPDU()
@@ -730,7 +636,7 @@ class MQTTClient(ServiceAccessPoint, Server):
         if _debug:
             MQTTClient._debug("    - xpdu: %r", xpdu)
 
-        if isinstance(xpdu, OriginalUnicastNPDU):
+        if isinstance(xpdu, EncapsulatedNPDU):
             # from ourselves?
             if xpdu.bvlciAddress == self.client:
                 if _debug:
@@ -741,28 +647,12 @@ class MQTTClient(ServiceAccessPoint, Server):
             ypdu = PDU(
                 xpdu.pduData,
                 source=xpdu.bvlciAddress,
-                destination=self.client,
                 user_data=xpdu.pduUserData,
             )
-            if _debug:
-                MQTTClient._debug("    - upstream ypdu: %r", ypdu)
-
-            deferred(self.response, ypdu)
-
-        elif isinstance(xpdu, OriginalBroadcastNPDU):
-            # from ourselves?
-            if xpdu.bvlciAddress == self.client:
-                if _debug:
-                    MQTTClient._debug("    - from ourselves")
-                return
-
-            # build a PDU with a local broadcast address
-            ypdu = PDU(
-                xpdu.pduData,
-                source=xpdu.bvlciAddress,
-                destination=LocalBroadcast(),
-                user_data=xpdu.pduUserData,
-            )
+            if topic_address == BROADCAST_TOPIC:
+                ypdu.destination = LocalBroadcast()
+            else:
+                ypdu.destination = self.client
             if _debug:
                 MQTTClient._debug("    - upstream ypdu: %r", ypdu)
 
@@ -781,36 +671,22 @@ class MQTTClient(ServiceAccessPoint, Server):
         if _debug:
             MQTTClient._debug("indication %r", pdu)
 
+        # make an encapsulated PDU
+        xpdu = EncapsulatedNPDU(self.client, pdu, user_data=pdu.pduUserData)
+
         # check for local stations
         if pdu.pduDestination.addrType == Address.localStationAddr:
-            # make an original unicast PDU
-            xpdu = OriginalUnicastNPDU(self.client, pdu, user_data=pdu.pduUserData)
-            if _debug:
-                MQTTClient._debug("    - original unicast xpdu: %r", xpdu)
-
             destination_topic = self.lan + "/" + addr2topic(pdu.pduDestination)
-            if _debug:
-                MQTTClient._debug("    - destination_topic: %r", destination_topic)
-
-            # send it to the address
-            response = self.mqtt_client.publish(destination_topic, xpdu.as_bytes())
-            if _debug:
-                MQTTClient._debug("    - publish: %r", response)
-
-        # check for broadcasts
         elif pdu.pduDestination.addrType == Address.localBroadcastAddr:
-            # make an original broadcast PDU
-            xpdu = OriginalBroadcastNPDU(self.client, pdu, user_data=pdu.pduUserData)
-            if _debug:
-                MQTTClient._debug("    - original broadcast xpdu: %r", xpdu)
+            destination_topic = self.broadcast_topic
+        if _debug:
+            MQTTClient._debug("    - destination_topic: %r", destination_topic)
+            MQTTClient._debug("    - encapsulated xpdu: %r", xpdu)
 
-            # send it to the address
-            response = self.mqtt_client.publish(self.broadcast_topic, xpdu.as_bytes())
-            if _debug:
-                MQTTClient._debug("    - publish: %r", response)
-
-        else:
-            MQTTClient._warning("invalid destination address: %r", pdu.pduDestination)
+        # send it to the topic
+        response = self.mqtt_client.publish(destination_topic, xpdu.as_bytes())
+        if _debug:
+            MQTTClient._debug("    - publish: %r", response)
 
     def sap_indication(self, blvpdu):
         if _debug:
