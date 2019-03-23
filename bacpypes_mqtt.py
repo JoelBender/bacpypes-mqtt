@@ -58,7 +58,11 @@ def register_bvlpdu_type(klass):
 @bacpypes_debugging
 class BVLCI(PCI, DebugContents):
 
-    _debug_contents = ("bvlciType", "bvlciFunction", "bvlciLength")
+    _debug_contents = (
+#       "bvlciType",
+        "bvlciFunction",
+#       "bvlciLength",
+        )
 
     result = 0x00
     poll = 0x01
@@ -75,15 +79,15 @@ class BVLCI(PCI, DebugContents):
             BVLCI._debug("__init__ %r %r", args, kwargs)
         super(BVLCI, self).__init__(*args, **kwargs)
 
-        self.bvlciType = 0x84
+#       self.bvlciType = 0x84
         self.bvlciFunction = None
-        self.bvlciLength = None
+#       self.bvlciLength = None
 
     def update(self, bvlci):
         PCI.update(self, bvlci)
-        self.bvlciType = bvlci.bvlciType
+#       self.bvlciType = bvlci.bvlciType
         self.bvlciFunction = bvlci.bvlciFunction
-        self.bvlciLength = bvlci.bvlciLength
+#       self.bvlciLength = bvlci.bvlciLength
 
     def encode(self, pdu):
         """encode the contents of the BVLCI into the PDU."""
@@ -93,13 +97,13 @@ class BVLCI(PCI, DebugContents):
         # copy the basics
         PCI.update(pdu, self)
 
-        pdu.put(self.bvlciType)  # 0x84
+#       pdu.put(self.bvlciType)  # 0x84
         pdu.put(self.bvlciFunction)
 
-        if self.bvlciLength != len(self.pduData) + 4:
-            raise EncodingError("invalid BVLCI length")
-
-        pdu.put_short(self.bvlciLength)
+#       if self.bvlciLength != len(self.pduData) + 4:
+#           raise EncodingError("invalid BVLCI length")
+#
+#       pdu.put_short(self.bvlciLength)
 
     def decode(self, pdu):
         """decode the contents of the PDU into the BVLCI."""
@@ -109,15 +113,15 @@ class BVLCI(PCI, DebugContents):
         # copy the basics
         PCI.update(self, pdu)
 
-        self.bvlciType = pdu.get()
-        if self.bvlciType != 0x84:
-            raise DecodingError("invalid BVLCI type")
+#       self.bvlciType = pdu.get()
+#       if self.bvlciType != 0x84:
+#           raise DecodingError("invalid BVLCI type")
 
         self.bvlciFunction = pdu.get()
-        self.bvlciLength = pdu.get_short()
-
-        if self.bvlciLength != len(pdu.pduData) + 4:
-            raise DecodingError("invalid BVLCI length")
+#       self.bvlciLength = pdu.get_short()
+#
+#       if self.bvlciLength != len(pdu.pduData) + 4:
+#           raise DecodingError("invalid BVLCI length")
 
     def bvlci_contents(self, use_dict=None, as_class=dict):
         """Return the contents of an object as a dict."""
@@ -129,9 +133,9 @@ class BVLCI(PCI, DebugContents):
             use_dict = as_class()
 
         # save the mapped value
-        use_dict.__setitem__("type", self.bvlciType)
+#       use_dict.__setitem__("type", self.bvlciType)
         use_dict.__setitem__("function", self.bvlciFunction)
-        use_dict.__setitem__("length", self.bvlciLength)
+#       use_dict.__setitem__("length", self.bvlciLength)
 
         # return what we built/updated
         return use_dict
@@ -242,7 +246,7 @@ class Result(BVLPDU):
         super(Result, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.result
-        self.bvlciLength = 4 + ADDRESS_LENGTH + 2
+#       self.bvlciLength = 4 + ADDRESS_LENGTH + 2
         self.bvlciAddress = addr
         self.bvlciResultCode = code
 
@@ -282,7 +286,7 @@ class Poll(BVLPDU):
         super(Online, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.poll
-        self.bvlciLength = 4 + ADDRESS_LENGTH
+#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -319,7 +323,7 @@ class Online(BVLPDU):
         super(Online, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.online
-        self.bvlciLength = 4 + ADDRESS_LENGTH
+#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -356,7 +360,7 @@ class Offline(BVLPDU):
         super(Offline, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.offline
-        self.bvlciLength = 4 + ADDRESS_LENGTH
+#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -393,7 +397,7 @@ class LostConnection(BVLPDU):
         super(LostConnection, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.lostConnection
-        self.bvlciLength = 4 + ADDRESS_LENGTH
+#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -430,12 +434,12 @@ class OriginalUnicastNPDU(BVLPDU):
         super(OriginalUnicastNPDU, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.originalUnicastNPDU
-        self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
+#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
         # make sure the length is correct
-        self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
+#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
 
         BVLCI.update(bvlpdu, self)
 
@@ -495,12 +499,12 @@ class OriginalBroadcastNPDU(BVLPDU):
         super(OriginalBroadcastNPDU, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.originalBroadcastNPDU
-        self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
+#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
         # make sure the length is correct
-        self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
+#       self.bvlciLength = 4 + ADDRESS_LENGTH + len(self.pduData)
 
         BVLCI.update(bvlpdu, self)
 
@@ -560,7 +564,7 @@ class JoinGroup(BVLPDU):
         super(JoinGroup, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.joinGroup
-        self.bvlciLength = 4 + ADDRESS_LENGTH
+#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
@@ -597,7 +601,7 @@ class LeaveGroup(BVLPDU):
         super(LeaveGroup, self).__init__(*args, **kwargs)
 
         self.bvlciFunction = BVLCI.leaveGroup
-        self.bvlciLength = 4 + ADDRESS_LENGTH
+#       self.bvlciLength = 4 + ADDRESS_LENGTH
         self.bvlciAddress = addr
 
     def encode(self, bvlpdu):
