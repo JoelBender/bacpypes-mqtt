@@ -67,43 +67,39 @@ def decode_packet(data, destination):
     # build a PDU
     pdu = PDU(data, destination=destination)
 
-    # check for a BVLL header
-    if pdu.pduData[0] == 0x84:
+    # decode the BVLCI header
+    xpdu = BVLPDU()
+    xpdu.decode(pdu)
+    pdu = xpdu
+
+    # make a more focused interpretation
+    atype = bvl_pdu_types.get(pdu.bvlciFunction)
+    if not atype:
         if _debug:
-            decode_packet._debug("    - BVLL header found")
+            decode_packet._debug("    - unknown BVLL type: %r", pdu.bvlciFunction)
+        return pdu
 
-        xpdu = BVLPDU()
-        xpdu.decode(pdu)
-        pdu = xpdu
+    # decode it as one of the basic types
+    try:
+        xpdu = pdu
+        bpdu = atype()
+        bpdu.decode(pdu)
+        if _debug:
+            decode_packet._debug("    - bpdu: %r", bpdu)
 
-        # make a more focused interpretation
-        atype = bvl_pdu_types.get(pdu.bvlciFunction)
-        if not atype:
-            if _debug:
-                decode_packet._debug("    - unknown BVLL type: %r", pdu.bvlciFunction)
+        pdu = bpdu
+
+        # source address in the packet
+        pdu.pduSource = pdu.bvlciAddress
+
+        # no deeper decoding for some
+        if atype not in (OriginalUnicastNPDU, OriginalBroadcastNPDU):
             return pdu
 
-        # decode it as one of the basic types
-        try:
-            xpdu = pdu
-            bpdu = atype()
-            bpdu.decode(pdu)
-            if _debug:
-                decode_packet._debug("    - bpdu: %r", bpdu)
-
-            pdu = bpdu
-
-            # source address in the packet
-            pdu.pduSource = pdu.bvlciAddress
-
-            # no deeper decoding for some
-            if atype not in (OriginalUnicastNPDU, OriginalBroadcastNPDU):
-                return pdu
-
-        except Exception as err:
-            if _debug:
-                decode_packet._debug("    - decoding Error: %r", err)
-            return xpdu
+    except Exception as err:
+        if _debug:
+            decode_packet._debug("    - decoding Error: %r", err)
+        return xpdu
 
     # check for version number
     if pdu.pduData[0] != 0x01:
